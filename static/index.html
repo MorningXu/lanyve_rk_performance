@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RK3588 性能监控</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="/static/js/echarts.min.js"></script>
+</head>
+<body>
+    <!-- 顶部导航栏 -->
+    <header class="header">
+        <div class="header-logo">
+            <img src="/logo.png" alt="logo" onerror="this.style.display='none'">
+        </div>
+        <div class="header-center">
+            <h1>RK3588 性能监控</h1>
+        </div>
+        <div class="header-right">
+            <span class="status-dot" id="statusDot"></span>
+            <span id="statusText">未连接</span>
+            &nbsp;|&nbsp;
+            时间范围:
+            <select id="timeRangeSelect">
+                <option value="60" selected>1分钟</option>
+                <option value="180">3分钟</option>
+                <option value="300">5分钟</option>
+                <option value="600">10分钟</option>
+            </select>
+            &nbsp;|&nbsp;
+            刷新间隔:
+            <input type="number" id="intervalInput" value="1000" min="500" max="10000" step="100">
+            ms
+            &nbsp;|&nbsp;
+            性能模式:
+            <button class="perf-btn" id="btnPerfCpu">CPU</button>
+            <button class="perf-btn" id="btnPerfGpu">GPU</button>
+            <button class="perf-btn" id="btnPerfNpu">NPU</button>
+            <button class="perf-btn perf-btn-all" id="btnPerfAll">全部</button>
+        </div>
+    </header>
+
+    <!-- 汇总表格 -->
+    <div class="summary-section">
+        <div class="summary-table" id="summaryTable">
+            <div class="summary-row" id="summaryRow"></div>
+        </div>
+    </div>
+
+    <!-- 图表网格 -->
+    <div class="grid-container">
+        <!-- CPU -->
+        <div class="card">
+            <div class="card-header">
+                <span class="title">CPU Total</span>
+                <span class="value" id="cpuTitle">N/A</span>
+            </div>
+            <div class="chart-container" id="cpuChart"></div>
+        </div>
+
+        <!-- NPU -->
+        <div class="card">
+            <div class="card-header">
+                <span class="title">NPU Total</span>
+                <span class="value" id="npuTitle">N/A</span>
+            </div>
+            <div class="chart-container" id="npuChart"></div>
+        </div>
+
+        <!-- GPU -->
+        <div class="card">
+            <div class="card-header">
+                <span class="title">GPU</span>
+                <span class="value" id="gpuTitle">N/A</span>
+            </div>
+            <div class="chart-container" id="gpuChart"></div>
+        </div>
+
+        <!-- Memory -->
+        <div class="card">
+            <div class="card-header">
+                <span class="title">Memory</span>
+                <span class="value" id="memTitle">N/A</span>
+            </div>
+            <div class="chart-container" id="memChart"></div>
+        </div>
+
+        <!-- DDR -->
+        <div class="card">
+            <div class="card-header">
+                <span class="title">DDR</span>
+                <span class="value" id="ddrTitle">N/A</span>
+            </div>
+            <div class="chart-container" id="ddrChart"></div>
+        </div>
+
+        <!-- Disk -->
+        <div class="card">
+            <div class="card-header">
+                <span class="title">Disk</span>
+                <span class="value" id="diskTitle">N/A</span>
+            </div>
+            <div class="chart-container" id="diskChart"></div>
+        </div>
+
+        <!-- Thermal -->
+        <div class="card">
+            <div class="card-header">
+                <span class="title">温度总览 (°C)</span>
+                <span class="value" id="thermalTitle"></span>
+            </div>
+            <div class="chart-container" id="thermalChart"></div>
+        </div>
+
+        <!-- VPU -->
+        <div class="card">
+            <div class="card-header">
+                <span class="title">VPU (MHz)</span>
+                <span class="value" id="vpuTitle">N/A</span>
+            </div>
+            <div class="chart-container" id="vpuChart"></div>
+        </div>
+    </div>
+
+    <script src="/static/js/dashboard.js?v=2"></script>
+    <div id="toastContainer" class="toast-container"></div>
+</body>
+</html>
