@@ -115,4 +115,4 @@ sudo python3 main.py
 
 ## License
 
-MIT
+Apache-2.0
