@@ -21,6 +21,7 @@ from collectors.disk import DiskCollector
 from collectors.gpu import GpuCollector
 from collectors.memory import MemoryCollector
 from collectors.npu import NpuCollector
+from collectors.rga import RgaCollector
 from collectors.thermal import ThermalCollector
 from collectors.vpu import VpuCollector
 from config import (
@@ -48,6 +49,7 @@ class WebSocketManager:
         self._vpu = VpuCollector()
         self._memory = MemoryCollector()
         self._disk = DiskCollector()
+        self._rga = RgaCollector()
         self._thermal = ThermalCollector()
 
     async def handle_ws(self, request: web.Request) -> web.WebSocketResponse:
@@ -172,6 +174,7 @@ class WebSocketManager:
             asyncio.to_thread(self._vpu.collect),
             asyncio.to_thread(self._memory.collect),
             asyncio.to_thread(self._disk.collect),
+            asyncio.to_thread(self._rga.collect),
             asyncio.to_thread(self._thermal.collect),
         )
 
@@ -182,7 +185,8 @@ class WebSocketManager:
             "vpu": results[3],
             "memory": results[4],
             "disk": results[5],
-            "thermal": results[6],
+            "rga": results[6],
+            "thermal": results[7],
         }
 
     async def _broadcast_json(self, data: dict):

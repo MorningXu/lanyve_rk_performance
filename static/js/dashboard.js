@@ -50,7 +50,8 @@ class Dashboard {
             ddr: [],
             diskUsed: [],
             diskFree: [],
-            thermal: {},
+            rga: {},
+            rgaTotal: [],
             vpu: {},
         };
         this._prefillPlaceholders();
@@ -103,7 +104,7 @@ class Dashboard {
         this.charts.mem = this._createChart('memChart');
         this.charts.ddr = this._createChart('ddrChart');
         this.charts.disk = this._createChart('diskChart');
-        this.charts.thermal = this._createChart('thermalChart');
+        this.charts.rga = this._createChart('rgaChart');
         this.charts.vpu = this._createChart('vpuChart');
     }
 
@@ -244,7 +245,7 @@ class Dashboard {
         this._updateMemHistory(data.memory);
         this._pushHistory('ddr', data.memory ? data.memory.ddr_frequency : null);
         this._updateDiskHistory(data.disk);
-        this._updateThermalHistory(data.thermal);
+        this._updateRgaHistory(data.rga);
         this._updateVpuHistory(data.vpu);
 
         // 更新图表
@@ -254,7 +255,7 @@ class Dashboard {
         this._updateMemChart(data.memory);
         this._updateDdrChart(data.memory);
         this._updateDiskChart(data.disk);
-        this._updateThermalChart(data.thermal);
+        this._updateRgaChart(data.rga);
         this._updateVpuChart(data.vpu);
 
         // 更新卡片标题
@@ -384,8 +385,8 @@ class Dashboard {
         for (let i = 0; i < 3; i++) {
             this.history.npu[i] = Array(size).fill(null);
         }
-        // thermal 和 vpu 的键是动态的，清空即可
-        this.history.thermal = {};
+        this.history.rga = {};
+        this.history.rgaTotal = Array(size).fill(null);
         this.history.vpu = {};
     }
 
@@ -456,14 +457,21 @@ class Dashboard {
         this._pushHistory('diskFree', disk.free_gib);
     }
 
-    _updateThermalHistory(thermal) {
-        if (!thermal || !thermal.sensors) return;
-        thermal.sensors.forEach(s => {
-            if (!this.history.thermal[s.label]) {
-                this.history.thermal[s.label] = Array(this.historySize).fill(null);
-            }
-            this._pushArray(this.history.thermal[s.label], s.temperature);
-        });
+    _updateRgaHistory(rga) {
+        if (!rga) return;
+        // 总负载
+        if (rga.load != null) {
+            this._pushHistory('rgaTotal', rga.load);
+        }
+        // 各 core 负载
+        if (rga.core_loads) {
+            rga.core_loads.forEach(c => {
+                if (!this.history.rga[c.name]) {
+                    this.history.rga[c.name] = Array(this.historySize).fill(null);
+                }
+                this._pushArray(this.history.rga[c.name], c.load);
+            });
+        }
     }
 
     _updateVpuHistory(vpu) {
@@ -669,21 +677,39 @@ class Dashboard {
         this.charts.disk.setOption(option, true);
     }
 
-    _updateThermalChart(thermal) {
-        if (!this.charts.thermal || !thermal) return;
+    _updateRgaChart(rga) {
+        if (!this.charts.rga) return;
+        const labels = Object.keys(this.history.rga);
+        if (labels.length === 0 && (!rga || !rga.load)) {
+            // 完全无数据
+            return;
+        }
         const series = [];
-        const labels = Object.keys(this.history.thermal);
         labels.forEach((label, idx) => {
             series.push({
                 name: label,
                 type: 'line',
                 lineStyle: {width: 1.5},
                 symbol: 'none',
-                data: this.history.thermal[label],
+                data: this.history.rga[label],
                 itemStyle: {color: COLORS[idx % COLORS.length]},
             });
         });
-        this.charts.thermal.setOption(this._baseAreaOption('Thermal', series, '°C'), true);
+        if (series.length === 0) {
+            // 仅 devfreq 模式有总负载无 core_loads
+            series.push({
+                name: 'RGA',
+                type: 'line',
+                areaStyle: {opacity: 0.4, color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                    {offset: 0, color: '#e67e22'}, {offset: 1, color: 'rgba(230,126,34,0.1)'}
+                ])},
+                lineStyle: {width: 2, color: '#e67e22'},
+                symbol: 'none',
+                data: this.history.rgaTotal,
+                itemStyle: {color: '#e67e22'},
+            });
+        }
+        this.charts.rga.setOption(this._baseAreaOption('RGA', series, '%'), true);
     }
 
     _updateVpuChart(vpu) {
@@ -718,12 +744,23 @@ class Dashboard {
 
     // ---- 卡片标题更新 ----
 
+    /**
+     * 从 thermal 数据中查找匹配关键字的温度
+     * @param {Object} thermal - thermal 数据
+     * @param {string} keyword - 关键字（如 "GPU"、"A76"）
+     * @returns {string|null} 温度字符串或 null
+     */
+    _findTemp(thermal, keyword) {
+        if (!thermal || !thermal.sensors) return null;
+        const s = thermal.sensors.find(s => s.label.toUpperCase().includes(keyword.toUpperCase()));
+        return s && s.temperature != null ? `${s.temperature}°C` : null;
+    }
+
     _updateTitles(data) {
         // CPU
         const cpuTotal = data.cpu && data.cpu.total_usage != null ? `${data.cpu.total_usage}%` : 'N/A';
-        const cpuTemp = data.thermal ? this._findTemp(data.thermal, ['A76', 'A55', 'SOC']) : null;
-        document.getElementById('cpuTitle').textContent = cpuTemp != null
-            ? `${cpuTotal} (${cpuTemp}°C)` : cpuTotal;
+        const cpuTemp = this._findTemp(data.thermal, 'A76') || this._findTemp(data.thermal, 'cpu');
+        document.getElementById('cpuTitle').textContent = cpuTemp ? `${cpuTotal} (${cpuTemp})` : cpuTotal;
 
         // NPU
         const npuTotal = data.npu && data.npu.total_load != null ? `${data.npu.total_load}%` : 'N/A';
@@ -731,9 +768,8 @@ class Dashboard {
 
         // GPU
         const gpuLoad = data.gpu && data.gpu.load != null ? `${data.gpu.load}%` : 'N/A';
-        const gpuTemp = data.thermal ? this._findTemp(data.thermal, ['GPU']) : null;
-        document.getElementById('gpuTitle').textContent = gpuTemp != null
-            ? `${gpuLoad} (${gpuTemp}°C)` : gpuLoad;
+        const gpuTemp = this._findTemp(data.thermal, 'GPU');
+        document.getElementById('gpuTitle').textContent = gpuTemp ? `${gpuLoad} (${gpuTemp})` : gpuLoad;
 
         // Memory
         const memPct = data.memory && data.memory.usage_percent != null
@@ -754,9 +790,12 @@ class Dashboard {
             ? `${data.disk.used_gib} GiB` : '';
         document.getElementById('diskTitle').textContent = diskUsed ? `${diskPct} (${diskUsed})` : diskPct;
 
-        // Thermal
-        const socTemp = data.thermal ? this._findTemp(data.thermal, ['SOC', 'Center']) : null;
-        document.getElementById('thermalTitle').textContent = socTemp != null ? `${socTemp}°C` : '';
+        // RGA
+        const rgaLoad = data.rga && data.rga.load != null ? `${data.rga.load}%` : 'N/A';
+        const rgaFreq = data.rga && data.rga.frequency != null ? ` (${data.rga.frequency} MHz)` : '';
+        const rgaCores = data.rga && data.rga.core_loads && data.rga.core_loads.length > 0
+            ? ` [${data.rga.core_loads.map(c => `${c.name}:${c.load}%`).join(' ')}]` : '';
+        document.getElementById('rgaTitle').textContent = `${rgaLoad}${rgaFreq}${rgaCores}`;
 
         // VPU
         const vpuAll = data.vpu ? [...(data.vpu.encoders || []), ...(data.vpu.decoders || [])] : [];
@@ -766,21 +805,6 @@ class Dashboard {
         } else {
             document.getElementById('vpuTitle').textContent = 'N/A';
         }
-    }
-
-    /**
-     * 从 thermal 数据中查找温度
-     * @param {Object} thermal - 温度数据
-     * @param {Array<string>} keywords - 标签关键字
-     * @returns {number|null} 温度值
-     */
-    _findTemp(thermal, keywords) {
-        if (!thermal || !thermal.sensors) return null;
-        for (const kw of keywords) {
-            const s = thermal.sensors.find(s => s.label.toUpperCase().includes(kw.toUpperCase()));
-            if (s && s.temperature != null) return s.temperature;
-        }
-        return null;
     }
 
     // ---- 汇总表格更新 ----
@@ -828,10 +852,13 @@ class Dashboard {
         const diskData = data.disk || {};
         items.push({label: 'Disk', value: diskData.usage_percent != null ? `${diskData.usage_percent}%` : 'N/A', cls: 'disk-cell'});
 
-        // Temperature
-        if (data.thermal && data.thermal.sensors) {
-            data.thermal.sensors.forEach(s => {
-                items.push({label: `Temp(${s.label})`, value: s.temperature != null ? `${s.temperature}°C` : 'N/A', cls: 'temp-cell'});
+        // RGA
+        const rgaData = data.rga || {};
+        items.push({label: 'RGA', value: rgaData.load != null ? `${rgaData.load}%` : 'N/A', cls: 'rga-cell'});
+        items.push({label: 'RGA_Freq', value: rgaData.frequency != null ? `${rgaData.frequency} MHz` : 'N/A', cls: 'rga-cell'});
+        if (rgaData.core_loads) {
+            rgaData.core_loads.forEach(c => {
+                items.push({label: `RGA(${c.name})`, value: c.load != null ? `${c.load}%` : 'N/A', cls: 'rga-cell'});
             });
         }
 
@@ -840,6 +867,15 @@ class Dashboard {
         vpuAll.forEach(v => {
             items.push({label: `VPU(${v.name})`, value: v.frequency != null ? `${v.frequency} MHz` : 'N/A', cls: 'vpu-cell'});
         });
+
+        // Temperature
+        const thermalData = data.thermal || {};
+        if (thermalData.sensors) {
+            thermalData.sensors.forEach(s => {
+                const temp = s.temperature != null ? `${s.temperature}°C` : 'N/A';
+                items.push({label: `Temp(${s.label})`, value: temp, cls: 'thermal-cell'});
+            });
+        }
 
         // 渲染到单个容器
         const row = document.getElementById('summaryRow');

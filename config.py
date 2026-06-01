@@ -40,7 +40,10 @@ NPU_LOAD_PATH = "/sys/kernel/debug/rknpu/load"
 # DDR sysfs 路径
 DDR_DEVFREQ_PATH = "/sys/class/devfreq/dmc/cur_freq"
 
-# 温度 sysfs 路径
+# RGA devfreq 候选路径（自动探测）
+RGA_DEVFREQ_CANDIDATES = ["rga"]
+
+# 温度传感器 sysfs 路径
 THERMAL_BASE_PATH = "/sys/class/thermal"
 
 # 内存信息路径

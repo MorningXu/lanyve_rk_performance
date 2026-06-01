@@ -7,7 +7,7 @@
 ## 功能特性
 
 - **实时监控** - 通过 WebSocket 推送数据，支持 500ms ~ 10s 可调刷新间隔
-- **多维度采集** - CPU、GPU、NPU、VPU、内存、磁盘、温度、DDR 频率
+- **多维度采集** - CPU、GPU、NPU、RGA、VPU、内存、磁盘、温度、DDR 频率
 - **历史图表** - 支持 1/3/5/10 分钟时间范围的历史数据曲线
 - **性能模式切换** - 一键切换 CPU/GPU/NPU governor（performance / ondemand）
 - **响应式设计** - 适配桌面端和移动端浏览器
@@ -19,10 +19,11 @@
 | CPU | 8 核使用率、3 组簇频率 | `/proc/stat`, sysfs cpufreq |
 | GPU | 负载率、频率 | sysfs devfreq |
 | NPU | 3 核负载、频率 | debugfs, sysfs devfreq |
+| RGA | 各 core 负载 | debugfs, sysfs devfreq |
 | VPU | 编解码器频率 | sysfs devfreq |
 | 内存 | 已用/可用/总量 | `/proc/meminfo` |
 | 磁盘 | 已用/可用/总量 | `os.statvfs()` |
-| 温度 | 各 thermal zone 温度 | sysfs thermal |
+| 温度 | 各 thermal zone 温度（汇总表格展示） | sysfs thermal |
 | DDR | 当前频率 | sysfs devfreq |
 
 ## 快速开始
@@ -93,6 +94,7 @@ sudo python3 main.py
 │   ├── cpu.py           # CPU 采集器
 │   ├── gpu.py           # GPU 采集器
 │   ├── npu.py           # NPU 采集器
+│   ├── rga.py           # RGA 采集器
 │   ├── vpu.py           # VPU 采集器
 │   ├── memory.py        # 内存采集器
 │   ├── disk.py          # 磁盘采集器
